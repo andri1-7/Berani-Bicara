@@ -30,7 +30,7 @@ Pipeline tersebut akan dibandingkan dengan native speech-to-speech jika akses da
 
 Lihat [implementation and evaluation plan](docs/PLAN.md). Kontribusi melalui branch dan pull request. Jangan mengirim kredensial, rekaman orang lain tanpa izin, atau hasil benchmark sintetis yang diklaim sebagai pengukuran nyata.
 
-Belum ada workflow GitHub Actions, deployment, atau instruksi build. Workflow macOS baru ditambahkan setelah ada kode yang dapat diuji; gunakan runner standar dan jangan masukkan kredensial signing ke repository.
+Demo TypeScript dapat diuji dari `app/` dengan `npm ci`, `npm test`, dan `npm run build`. Demo memakai contoh tetap, **bukan mikrofon atau AI live**. Lihat `app/README.md` untuk batasan Tauri dan audio. Workflow offline hanya menguji Python/frontend tanpa API key; hasil build frontend bukan bukti build desktop Mac. Build Rust/Tauri, mikrofon, dan distribusi macOS masih memerlukan verifikasi terpisah. Jangan masukkan kredensial signing ke repository.
 
 ## Lisensi
 

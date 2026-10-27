@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BeraniBicara",
+  "version": "0.1.0",
+  "identifier": "com.beranibicara.demo",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "BeraniBicara \u2014 OFFLINE DEMO",
+        "width": 960,
+        "height": 800,
+        "minWidth": 360,
+        "minHeight": 500
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "default"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "macOS": {
+      "minimumSystemVersion": "14.2"
+    }
+  }
+}

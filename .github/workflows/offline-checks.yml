@@ -1,0 +1,37 @@
+name: Offline checks
+
+on:
+  push:
+    branches: [master, feat/evaluation-foundation]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: offline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PAID_TESTS_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Python offline tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Install locked frontend dependencies
+        working-directory: app
+        run: npm ci --ignore-scripts
+      - name: Frontend offline tests
+        working-directory: app
+        run: npm test
+      - name: Build frontend assets (not a native Mac build)
+        working-directory: app
+        run: npm run build
