@@ -1,0 +1,62 @@
+name: macOS arm64 preview
+
+on:
+  push:
+    branches: [feat/evaluation-foundation]
+    paths: ['app/**', '.github/workflows/macos-preview.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    env:
+      PAID_TESTS_ENABLED: 'false'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          targets: aarch64-apple-darwin
+      - name: Verify runner and tools
+        run: |
+          uname -m
+          xcodebuild -version
+          rustc --version
+          cargo --version
+      - name: Install locked frontend dependencies
+        working-directory: app
+        run: npm ci --ignore-scripts
+      - name: Frontend tests and production assets
+        working-directory: app
+        run: npm test && npm run build
+      - name: Rust tests on Apple Silicon target
+        working-directory: app
+        run: cargo test --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
+      - name: Build unsigned app bundle
+        working-directory: app
+        run: npm run tauri -- build --target aarch64-apple-darwin --bundles app --config '{"bundle":{"active":true,"targets":["app"]}}'
+      - name: Verify and archive preview
+        run: |
+          APP=app/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/BeraniBicara.app
+          test -d "$APP"
+          file "$APP/Contents/MacOS/beranibicara"
+          plutil -lint "$APP/Contents/Info.plist"
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent "$APP" artifacts/BeraniBicara-macos-arm64-unsigned.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: BeraniBicara-macos-arm64-unsigned-${{ github.sha }}
+          path: artifacts/BeraniBicara-macos-arm64-unsigned.zip
+          retention-days: 3
+          if-no-files-found: error
