@@ -1,5 +1,5 @@
 """Literal, non-executing configuration."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 import os
 
@@ -17,6 +17,12 @@ def limit(value, maximum):
 @dataclass(frozen=True)
 class Config:
     paid_tests_enabled: bool = False
+    api_key: str = field(default='', repr=False)
+
+    @property
+    def key_present(self):
+        return bool(self.api_key)
+
     total_limit: str = '5.00'
     stop_line: str = '4.50'
 
@@ -27,4 +33,4 @@ def load_config(*, environ=None, path=None):
     stop = limit(env.get('EVALUATION_STOP_LINE_USD', min(Decimal(total), Decimal('4.50'))), '4.50')
     if Decimal(stop) > Decimal(total):
         raise ValueError('Invalid budget setting')
-    return Config(total_limit=total, stop_line=stop)
+    return Config(total_limit=total, stop_line=stop, api_key=env.get('OPENROUTER_API_KEY', ''))
