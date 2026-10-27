@@ -27,6 +27,10 @@ __pycache__/
 
 # Node tooling, if introduced
 node_modules/
+app/dist/
+app/.test-dist/
+app/src-tauri/target/
+app/src-tauri/gen/
 
 # Private input, recordings and generated outputs
 private/
