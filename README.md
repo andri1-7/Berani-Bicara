@@ -6,7 +6,7 @@ BeraniBicara bertujuan membantu pengguna berlatih speaking bahasa Inggris dengan
 
 ## Status
 
-**Planning / belum ada aplikasi yang dapat dijalankan.** Belum ada model yang lolos benchmark proyek, biaya sesi nyata yang terukur, atau integrasi API berbayar. Nama model dalam plan adalah kandidat, bukan rekomendasi yang sudah tervalidasi.
+**Implementasi awal, belum siap untuk percakapan AI live.** Fondasi evaluator Python dan kontrak offline sudah tersedia. Aplikasi menggunakan **Rust + Tauri 2 + TypeScript**, menggantikan proposal SwiftUI; lihat [migrasi arsitektur](docs/TAURI-MIGRATION.md). Belum ada model yang lolos benchmark proyek, biaya sesi nyata yang terukur, atau integrasi API berbayar. Nama model dalam plan adalah kandidat, bukan rekomendasi yang sudah tervalidasi.
 
 ## Pendekatan yang akan diuji
 

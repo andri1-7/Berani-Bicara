@@ -29,6 +29,7 @@ __pycache__/
 node_modules/
 app/dist/
 app/.test-dist/
+app/.test-build/
 app/src-tauri/target/
 app/src-tauri/gen/
 
