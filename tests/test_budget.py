@@ -43,3 +43,25 @@ class TestBudget(unittest.TestCase):
                                     (LIMITS, '4.90', '4.50'), (LIMITS, '5', '4.40')]:
             with self.subTest(limits=limits), self.assertRaises(ValueError):
                 BudgetLedger(self.path, limits, total, stop)
+
+    def test_two_processes_cannot_both_reserve(self):
+        import subprocess
+        import sys
+        script = """import sys
+from benchmarks.budget import BudgetLedger, BudgetExceeded, DEFAULT_STAGE_LIMITS
+ledger = BudgetLedger(sys.argv[1], DEFAULT_STAGE_LIMITS)
+sys.stdin.readline()
+try:
+    ledger.reserve('smoke', '0.01')
+    print('reserved')
+except BudgetExceeded:
+    print('blocked')
+"""
+        processes = [subprocess.Popen([sys.executable, '-c', script, str(self.path)], stdin=subprocess.PIPE,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for _ in range(2)]
+        for process in processes:
+            process.stdin.write('go\n')
+            process.stdin.flush()
+        outputs = [process.communicate(timeout=20) for process in processes]
+        self.assertEqual(sorted(out.strip() for out, err in outputs), ['blocked', 'reserved'], outputs)
+        self.assertTrue(all(process.returncode == 0 for process in processes), outputs)

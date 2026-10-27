@@ -63,6 +63,8 @@ class BudgetLedger:
         if stage not in self.limits:
             raise BudgetExceeded('Unknown or locked stage')
         with self._transaction() as db:
+            if db.execute("SELECT 1 FROM requests WHERE actual_micro IS NULL LIMIT 1").fetchone():
+                raise BudgetExceeded('Outstanding request blocks dispatch')
             total = db.execute('SELECT COALESCE(SUM(COALESCE(actual_micro, reserved_micro)), 0) FROM requests').fetchone()[0]
             if total + amount > min(self.total_limit, self.stop_line):
                 raise BudgetExceeded('Operational or total budget exceeded')
