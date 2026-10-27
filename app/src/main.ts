@@ -8,10 +8,16 @@ const talk = document.querySelector<HTMLButtonElement>('#talk')!;
 const replayButton = document.querySelector<HTMLButtonElement>('#replay')!;
 const speech = 'speechSynthesis' in window ? window.speechSynthesis : undefined;
 const fallback = 'Suara Inggris lokal tidak tersedia. Baca balasan di atas; tidak ada audio yang diunduh.';
+let playbackGeneration = 0;
 const demo = createDemo({
   schedule: (fn, delay) => window.setTimeout(fn, delay),
   cancel: id => window.clearTimeout(id),
-  cancelSpeech: () => { speech?.cancel(); audioStatus.textContent = 'Pemutaran dihentikan.'; },
+  cancelSpeech: () => {
+    // Cancellation may invoke utterance callbacks synchronously.
+    playbackGeneration++;
+    speech?.cancel();
+    audioStatus.textContent = 'Pemutaran dihentikan.';
+  },
 }, render);
 function paragraph(label: string, text: string, className = '') {
   const block = document.createElement('div');
@@ -64,10 +70,12 @@ document.querySelector('#stop')!.addEventListener('click', () => demo.stop());
 document.querySelector('#clear')!.addEventListener('click', () => demo.clear());
 replayButton.addEventListener('click', () => {
   const text = demo.state.turns.at(-1)?.reply ?? '';
+  // Invalidate the previous playback before replay() can call speech.cancel().
+  const current = ++playbackGeneration;
   audioStatus.textContent = replay(speech, text, text => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onend = () => { audioStatus.textContent = 'Pemutaran selesai.'; };
-    utterance.onerror = () => { audioStatus.textContent = fallback; };
+    utterance.onend = () => { if (current === playbackGeneration) audioStatus.textContent = 'Pemutaran selesai.'; };
+    utterance.onerror = () => { if (current === playbackGeneration) audioStatus.textContent = fallback; };
     return utterance;
   }) === 'started' ? 'Meminta pemutaran suara lokal… Jika tidak terdengar, baca teks balasan.' : fallback;
 });
