@@ -80,3 +80,11 @@ class BudgetLedger:
             changed = db.execute("UPDATE requests SET status='unknown' WHERE id=? AND status='reserved' AND actual_micro IS NULL", (request_id,)).rowcount
             if changed != 1:
                 raise ValueError('Request is missing or already reconciled/unknown')
+
+    def summary(self):
+        with self._transaction() as db:
+            rows = db.execute('SELECT stage, reserved_micro, actual_micro, status FROM requests').fetchall()
+            confirmed = sum(row['actual_micro'] for row in rows if row['actual_micro'] is not None)
+            reserved = sum(row['reserved_micro'] for row in rows if row['actual_micro'] is None)
+            return {'confirmed_micro': confirmed, 'reserved_micro': reserved,
+                    'unresolved': sum(row['status'] == 'unknown' for row in rows)}

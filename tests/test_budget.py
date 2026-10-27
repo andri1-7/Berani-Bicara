@@ -74,3 +74,15 @@ except BudgetExceeded:
             self.assertEqual(db.execute('SELECT status FROM requests WHERE id=?', (request,)).fetchone()[0], 'unknown')
         with self.assertRaises(BudgetExceeded):
             BudgetLedger(self.path, LIMITS).reserve('grammar', '0.01')
+
+    def test_timeout_does_not_release_reservation(self):
+        request = self.ledger.reserve('smoke', '0.10')
+        try:
+            raise TimeoutError('offline timeout fixture')
+        except TimeoutError:
+            self.ledger.mark_unknown(request)
+        summary = getattr(BudgetLedger(self.path, LIMITS), 'summary', lambda: {})()
+        self.assertEqual(summary.get('reserved_micro'), 100000)
+        self.assertEqual(summary.get('unresolved'), 1)
+        with self.assertRaises(BudgetExceeded):
+            self.ledger.reserve('grammar', '0.01')
