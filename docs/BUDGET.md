@@ -1,6 +1,6 @@
 # Evaluation budget proposal
 
-Status: PROPOSED. This document is not authorization to purchase credits, call paid APIs, or configure account billing. Currency: USD; no exchange-rate assumption.
+Status: OWNER-APPROVED inference budget. Owner approved a $5 total inference ceiling and the proposed stage allocations in chat. Currency: USD; no exchange-rate assumption. This approval does not authorize credit purchases, automatic recharge, or unrelated infrastructure spending. Paid requests remain blocked until dedicated credentials, cost accounting, and the planned safeguards are configured and verified.
 
 ## Scope
 
