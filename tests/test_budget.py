@@ -122,3 +122,7 @@ except BudgetExceeded:
         with self.assertRaises(ValueError):
             BudgetLedger(link, LIMITS)
         self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+
+    def test_fractional_micro_limits_are_rejected(self):
+        with self.assertRaises(ValueError):
+            BudgetLedger(Path(self.tmp.name)/'fractional'/'ledger.sqlite3', {'smoke': '0.2500001'})

@@ -6,6 +6,7 @@ from pathlib import Path
 import sqlite3
 import uuid
 from .money import reserve_micro, actual_micro
+from decimal import Decimal
 
 
 DEFAULT_STAGE_LIMITS = {'smoke': '0.25', 'grammar': '0.75', 'transcription': '0.75',
@@ -18,6 +19,10 @@ class BudgetExceeded(ValueError):
 
 class BudgetLedger:
     def __init__(self, path, stage_limits, total_limit='5.00', stop_line='4.50'):
+        for value in [*stage_limits.values(), total_limit, stop_line]:
+            rounded = reserve_micro(value)
+            if Decimal(value) * 1000000 != rounded:
+                raise ValueError('Limits must be exact microUSD')
         self.path = Path(path)
         self.limits = {stage: reserve_micro(value) for stage, value in stage_limits.items()}
         self.total_limit = reserve_micro(total_limit)
