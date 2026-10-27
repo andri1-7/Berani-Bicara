@@ -36,3 +36,9 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(data['budget']['available_by_stage_micro']['smoke'], 130000)
             self.assertEqual(data['budget']['remaining_micro'], 4380000)
             self.assertFalse(data['budget']['dispatch_allowed'])
+
+    def test_argument_errors_do_not_echo_untrusted_values(self):
+        secret = 'fixture-secret-in-invalid-argument'
+        result = subprocess.run([sys.executable, '-m', 'benchmarks', secret], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(secret, result.stdout+result.stderr)

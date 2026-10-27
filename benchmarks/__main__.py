@@ -6,8 +6,13 @@ from .budget import BudgetLedger, DEFAULT_STAGE_LIMITS
 from .config import load_config
 
 
+class PrivateArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.exit(2, 'Invalid command arguments; use --help.\n')
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Offline evaluation; paid calls are opt-in and not implemented.')
+    parser = PrivateArgumentParser(description='Offline evaluation; paid calls are opt-in and not implemented.')
     commands = parser.add_subparsers(dest='command', required=True)
     status = commands.add_parser('status', help='Read offline configuration and budget status')
     status.add_argument('--ledger', default='private/ledger.sqlite3')
