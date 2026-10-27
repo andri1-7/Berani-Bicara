@@ -74,3 +74,9 @@ class BudgetLedger:
             request_id = uuid.uuid4().hex
             db.execute("INSERT INTO requests (id, stage, reserved_micro, status) VALUES (?, ?, ?, 'reserved')", (request_id, stage, amount))
             return request_id
+
+    def mark_unknown(self, request_id):
+        with self._transaction() as db:
+            changed = db.execute("UPDATE requests SET status='unknown' WHERE id=? AND status='reserved' AND actual_micro IS NULL", (request_id,)).rowcount
+            if changed != 1:
+                raise ValueError('Request is missing or already reconciled/unknown')

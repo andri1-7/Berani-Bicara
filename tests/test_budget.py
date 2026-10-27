@@ -65,3 +65,12 @@ except BudgetExceeded:
         outputs = [process.communicate(timeout=20) for process in processes]
         self.assertEqual(sorted(out.strip() for out, err in outputs), ['blocked', 'reserved'], outputs)
         self.assertTrue(all(process.returncode == 0 for process in processes), outputs)
+
+    def test_unknown_cost_blocks_new_requests(self):
+        request = self.ledger.reserve('smoke', '0.10')
+        getattr(self.ledger, 'mark_unknown', lambda request: None)(request)
+        import sqlite3
+        with sqlite3.connect(self.path) as db:
+            self.assertEqual(db.execute('SELECT status FROM requests WHERE id=?', (request,)).fetchone()[0], 'unknown')
+        with self.assertRaises(BudgetExceeded):
+            BudgetLedger(self.path, LIMITS).reserve('grammar', '0.01')
