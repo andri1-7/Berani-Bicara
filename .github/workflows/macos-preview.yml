@@ -42,7 +42,26 @@ jobs:
         run: npm test && npm run build
       - name: Rust tests on Apple Silicon target
         working-directory: app
-        run: cargo test --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --manifest-path src-tauri/Cargo.toml --target aarch64-apple-darwin 2>&1 | tee "$RUNNER_TEMP/rust-tests.log"
+      - name: Surface Rust failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ['RUNNER_TEMP']) / 'rust-tests.log'
+          if p.exists():
+              lines = p.read_text(errors='replace').splitlines()
+              starts = [i for i, line in enumerate(lines) if 'error' in line.lower() or 'panicked' in line.lower()]
+              selected = sorted({j for i in starts for j in range(max(0, i-1), min(len(lines), i+12))})
+              excerpt = '\n'.join(lines[i] for i in selected)[-16000:]
+              escaped = excerpt.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Rust compiler diagnostics::' + escaped)
+          PY
       - name: Build unsigned app bundle
         working-directory: app
         run: npm run tauri -- build --target aarch64-apple-darwin --bundles app --config '{"bundle":{"active":true,"targets":["app"]}}'
