@@ -126,3 +126,45 @@ except BudgetExceeded:
     def test_fractional_micro_limits_are_rejected(self):
         with self.assertRaises(ValueError):
             BudgetLedger(Path(self.tmp.name)/'fractional'/'ledger.sqlite3', {'smoke': '0.2500001'})
+
+    def test_stage_cap_after_settlement_not_just_inflight_guard(self):
+        request = self.ledger.reserve('smoke', '0.20')
+        self.ledger.settle(request, '0.20')
+        with self.assertRaises(BudgetExceeded):
+            self.ledger.reserve('smoke', '0.06')
+        self.assertEqual(self.ledger.summary()['confirmed_micro'], 200000)
+        self.ledger.reserve('smoke', '0.05')
+
+    def test_total_stop_line_after_settlements_across_stages(self):
+        path = Path(self.tmp.name)/'sequential'/'ledger.sqlite3'
+        ledger = BudgetLedger(path, {'first': '3', 'second': '3'})
+        request = ledger.reserve('first', '3')
+        ledger.settle(request, '3')
+        request = ledger.reserve('second', '1.50')
+        ledger.settle(request, '1.50')
+        with self.assertRaises(BudgetExceeded):
+            ledger.reserve('second', '0.000001')
+        self.assertEqual(ledger.summary()['remaining_micro'], 0)
+
+    def test_reconcile_unknown_releases_only_unused_reservation(self):
+        request = self.ledger.reserve('smoke', '0.20')
+        self.ledger.mark_unknown(request)
+        self.ledger.settle(request, '0.01')
+        self.assertEqual(self.ledger.summary()['unresolved'], 0)
+        self.assertEqual(self.ledger.summary()['reserved_micro'], 0)
+        self.assertTrue(self.ledger.summary()['dispatch_allowed'])
+        with self.assertRaises(ValueError):
+            self.ledger.mark_unknown(request)
+        self.ledger.reserve('smoke', '0.24')
+
+    def test_private_permissions(self):
+        self.assertEqual(self.path.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.path.parent.stat().st_mode & 0o777, 0o700)
+
+    def test_invalid_cost_does_not_release_reservation(self):
+        request = self.ledger.reserve('smoke', '0.10')
+        with self.assertRaises(ValueError):
+            self.ledger.settle(request, 'NaN')
+        self.assertEqual(self.ledger.summary()['reserved_micro'], 100000)
+        with self.assertRaises(BudgetExceeded):
+            self.ledger.reserve('smoke', '0.01')
