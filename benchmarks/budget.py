@@ -22,6 +22,10 @@ class BudgetLedger:
         self.limits = {stage: reserve_micro(value) for stage, value in stage_limits.items()}
         self.total_limit = reserve_micro(total_limit)
         self.stop_line = reserve_micro(stop_line)
+        if not self.limits or any(not isinstance(stage, str) or not stage.isidentifier() or stage == 'contingency' or value <= 0 for stage, value in self.limits.items()):
+            raise ValueError('Invalid stage limits')
+        if not 0 < self.stop_line <= min(self.total_limit, 4500000) or self.total_limit > 5000000:
+            raise ValueError('Invalid total limits')
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.path.parent, 0o700)
         fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
@@ -47,7 +51,14 @@ class BudgetLedger:
 
     def reserve(self, stage, upper_usd):
         amount = reserve_micro(upper_usd)
+        if amount <= 0:
+            raise ValueError('Reservation must be positive')
+        if stage not in self.limits:
+            raise BudgetExceeded('Unknown or locked stage')
         with self._transaction() as db:
+            total = db.execute('SELECT COALESCE(SUM(COALESCE(actual_micro, reserved_micro)), 0) FROM requests').fetchone()[0]
+            if total + amount > min(self.total_limit, self.stop_line):
+                raise BudgetExceeded('Operational or total budget exceeded')
             used = db.execute('SELECT COALESCE(SUM(COALESCE(actual_micro, reserved_micro)), 0) FROM requests WHERE stage=?', (stage,)).fetchone()[0]
             if used + amount > self.limits.get(stage, 0):
                 raise BudgetExceeded('Stage budget exceeded')
