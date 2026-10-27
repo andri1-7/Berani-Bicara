@@ -42,3 +42,6 @@ artifacts/
 *.ogg
 *.webm
 *.log
+
+# Private implementation plans
+.hermes/plans/
