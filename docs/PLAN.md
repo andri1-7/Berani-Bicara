@@ -1,5 +1,7 @@
 # BeraniBicara — implementation and evaluation plan
 
+> Architecture update: the owner selected Rust + Tauri 2 + TypeScript instead of SwiftUI. See [TAURI-MIGRATION.md](TAURI-MIGRATION.md) and [DECISIONS.md](DECISIONS.md). Any SwiftUI/Swift-specific steps below are historical proposals and must not be implemented; evaluation, privacy and budget requirements remain applicable.
+
 ## Scope and status
 
 Approved direction: public GitHub project for learning and open-source development; native macOS app is the intended delivery target. Current milestone is documentation only. This file describes future work, not completed tests or a working application.
