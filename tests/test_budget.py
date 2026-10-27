@@ -97,3 +97,18 @@ except BudgetExceeded:
         with self.assertRaises(ValueError):
             self.ledger.settle('nonexistent', '0')
         self.ledger.reserve('smoke', '0.20')
+
+    def test_actual_cost_above_reservation_halts_account(self):
+        request = self.ledger.reserve('smoke', '0.10')
+        self.ledger.settle(request, '5.01')
+        reopened = BudgetLedger(self.path, LIMITS)
+        self.assertEqual(reopened.summary()['confirmed_micro'], 5010000)
+        self.assertTrue(reopened.summary().get('halted', False))
+        with self.assertRaises(BudgetExceeded):
+            reopened.reserve('grammar', '0.01')
+
+    def test_small_overrun_also_permanently_halts(self):
+        request = self.ledger.reserve('smoke', '0.10')
+        self.ledger.settle(request, '0.100001')
+        with self.assertRaises(BudgetExceeded):
+            BudgetLedger(self.path, LIMITS).reserve('grammar', '0.01')

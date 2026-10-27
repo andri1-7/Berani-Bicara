@@ -63,6 +63,8 @@ class BudgetLedger:
         if stage not in self.limits:
             raise BudgetExceeded('Unknown or locked stage')
         with self._transaction() as db:
+            if db.execute("SELECT 1 FROM metadata WHERE key='halted'").fetchone():
+                raise BudgetExceeded('Account halted after cost overrun')
             if db.execute("SELECT 1 FROM requests WHERE actual_micro IS NULL LIMIT 1").fetchone():
                 raise BudgetExceeded('Outstanding request blocks dispatch')
             total = db.execute('SELECT COALESCE(SUM(COALESCE(actual_micro, reserved_micro)), 0) FROM requests').fetchone()[0]
@@ -87,11 +89,15 @@ class BudgetLedger:
             confirmed = sum(row['actual_micro'] for row in rows if row['actual_micro'] is not None)
             reserved = sum(row['reserved_micro'] for row in rows if row['actual_micro'] is None)
             return {'confirmed_micro': confirmed, 'reserved_micro': reserved,
-                    'unresolved': sum(row['status'] == 'unknown' for row in rows)}
+                    'unresolved': sum(row['status'] == 'unknown' for row in rows),
+                    'halted': db.execute("SELECT 1 FROM metadata WHERE key='halted'").fetchone() is not None}
 
     def settle(self, request_id, actual_usd):
         amount = actual_micro(actual_usd)
         with self._transaction() as db:
+            original = db.execute('SELECT reserved_micro FROM requests WHERE id=?', (request_id,)).fetchone()
+            if original is not None and amount > original[0]:
+                db.execute("INSERT OR IGNORE INTO metadata VALUES ('halted', 'overrun')")
             changed = db.execute("UPDATE requests SET actual_micro=?, status='settled' WHERE id=? AND actual_micro IS NULL AND status IN ('reserved', 'unknown')", (amount, request_id)).rowcount
             if changed != 1:
                 raise ValueError('Request is missing or already settled')
