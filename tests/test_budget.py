@@ -11,7 +11,15 @@ class TestBudget(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name)/'private'/'ledger.sqlite3'
-        self.ledger = BudgetLedger(self.path, LIMITS)
+        self.ledger = BudgetLedger.initialize(self.path, LIMITS)
+
+    def test_initial_policy_rejects_unapproved_caps_and_names(self):
+        for limits in ({'smoke': '4.50'}, {'evaluation': '5.00'}, {'first': '0.01'}):
+            with self.subTest(limits=limits), self.assertRaises(ValueError):
+                BudgetLedger(Path(self.tmp.name)/(next(iter(limits))+'.sqlite3'), limits)
+            with self.subTest(initialization=limits), self.assertRaises(ValueError):
+                BudgetLedger.initialize(Path(self.tmp.name)/'unauthorized.sqlite3', limits)
+        self.assertFalse((Path(self.tmp.name)/'unauthorized.sqlite3').exists())
 
     def test_reservation_blocks_overspend(self):
         self.ledger.reserve('smoke', '0.20')
@@ -20,10 +28,11 @@ class TestBudget(unittest.TestCase):
 
     def test_total_reservation_stops_at_four_fifty(self):
         path = Path(self.tmp.name)/'total'/'ledger.sqlite3'
-        ledger = BudgetLedger(path, {'evaluation': '5.00'})
-        ledger.reserve('evaluation', '4.50')
+        ledger = BudgetLedger.initialize(path, LIMITS, stop_line='0.20')
+        request = ledger.reserve('smoke', '0.20')
+        ledger.settle(request, '0.20')
         with self.assertRaises(BudgetExceeded):
-            ledger.reserve('evaluation', '0.000001')
+            ledger.reserve('grammar', '0.000001')
 
     def test_invalid_limits_and_locked_contingency(self):
         for total, stop in [('5.01', '4.50'), ('5', '4.51'), ('0', '0'), ('1', '2')]:
@@ -119,13 +128,17 @@ except BudgetExceeded:
         target.chmod(0o644)
         link = self.path.parent/'link.sqlite3'
         link.symlink_to(target)
-        with self.assertRaises(ValueError):
+        with self.assertRaises((ValueError, OSError)):
             BudgetLedger(link, LIMITS)
         self.assertEqual(target.stat().st_mode & 0o777, 0o644)
 
     def test_fractional_micro_limits_are_rejected(self):
-        with self.assertRaises(ValueError):
-            BudgetLedger(Path(self.tmp.name)/'fractional'/'ledger.sqlite3', {'smoke': '0.2500001'})
+        for value in ('0.2500001', '0.2000000000000000000000000001'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                BudgetLedger.initialize(Path(self.tmp.name)/'fractional'/'ledger.sqlite3', {'smoke': value})
+        for value in ('0.2500001', '0.2000000000000000000000000001'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                BudgetLedger(self.path, {'smoke': value})
 
     def test_stage_cap_after_settlement_not_just_inflight_guard(self):
         request = self.ledger.reserve('smoke', '0.20')
@@ -137,13 +150,13 @@ except BudgetExceeded:
 
     def test_total_stop_line_after_settlements_across_stages(self):
         path = Path(self.tmp.name)/'sequential'/'ledger.sqlite3'
-        ledger = BudgetLedger(path, {'first': '3', 'second': '3'})
-        request = ledger.reserve('first', '3')
-        ledger.settle(request, '3')
-        request = ledger.reserve('second', '1.50')
-        ledger.settle(request, '1.50')
+        ledger = BudgetLedger.initialize(path, LIMITS, stop_line='1.00')
+        request = ledger.reserve('smoke', '0.25')
+        ledger.settle(request, '0.25')
+        request = ledger.reserve('grammar', '0.75')
+        ledger.settle(request, '0.75')
         with self.assertRaises(BudgetExceeded):
-            ledger.reserve('second', '0.000001')
+            ledger.reserve('transcription', '0.000001')
         self.assertEqual(ledger.summary()['remaining_micro'], 0)
 
     def test_reconcile_unknown_releases_only_unused_reservation(self):
@@ -168,3 +181,55 @@ except BudgetExceeded:
         self.assertEqual(self.ledger.summary()['reserved_micro'], 100000)
         with self.assertRaises(BudgetExceeded):
             self.ledger.reserve('smoke', '0.01')
+
+
+    def test_open_missing_does_not_create_or_chmod(self):
+        parent = Path(self.tmp.name)/'unrelated'
+        parent.mkdir(mode=0o755)
+        path = parent/'missing.sqlite3'
+        with self.assertRaises((ValueError, OSError)):
+            BudgetLedger(path, LIMITS)
+        self.assertFalse(path.exists())
+        self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
+
+    def test_open_missing_schema_or_policy_fails_without_repair(self):
+        import sqlite3
+        for remove in ("DELETE FROM metadata WHERE key='policy'", 'DROP TABLE requests'):
+            path = Path(self.tmp.name)/('broken'+str(len(remove)))/'ledger.sqlite3'
+            BudgetLedger.initialize(path, LIMITS)
+            with sqlite3.connect(path) as db:
+                db.execute(remove)
+            before = path.read_bytes()
+            with self.assertRaises(ValueError):
+                BudgetLedger(path, LIMITS)
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_open_empty_or_foreign_database_fails_without_changes(self):
+        import sqlite3
+        for foreign in (False, True):
+            path = Path(self.tmp.name)/('foreign' if foreign else 'empty')
+            with sqlite3.connect(path) as db:
+                if foreign:
+                    db.execute('CREATE TABLE unrelated (value TEXT)')
+            before = path.read_bytes()
+            with self.assertRaises((ValueError, sqlite3.Error)):
+                BudgetLedger(path, LIMITS)
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_explicit_init_refuses_existing_and_symlink_ancestors(self):
+        self.assertTrue(hasattr(BudgetLedger, 'initialize'), 'Explicit initialization is required')
+        with self.assertRaises((ValueError, OSError)):
+            BudgetLedger.initialize(self.path, LIMITS)
+        link = Path(self.tmp.name)/'linked'
+        link.symlink_to(self.path.parent, target_is_directory=True)
+        with self.assertRaises((ValueError, OSError)):
+            BudgetLedger.initialize(link/'nested'/'new.sqlite3', LIMITS)
+        self.assertFalse((self.path.parent/'nested').exists())
+
+    def test_explicit_init_never_chmods_existing_parent(self):
+        parent = Path(self.tmp.name)/'public'
+        parent.mkdir(mode=0o755)
+        with self.assertRaises((ValueError, OSError)):
+            BudgetLedger.initialize(parent/'new.sqlite3', LIMITS)
+        self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
+        self.assertFalse((parent/'new.sqlite3').exists())

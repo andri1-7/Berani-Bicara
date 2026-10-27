@@ -2,6 +2,29 @@ import unittest
 from benchmarks import config
 
 class TestConfig(unittest.TestCase):
+    def test_direct_construction_enforces_invariants(self):
+        cases = [dict(paid_tests_enabled=value) for value in ('false', 0, 1, None)]
+        cases += [dict(api_key=value) for value in (None, 1, True, b'key')]
+        cases += [dict(total_limit='500'), dict(stop_line='4.500001'),
+                  dict(total_limit='1', stop_line='2'), dict(total_limit='0'),
+                  dict(total_limit='1.0000000000000000000000000001', stop_line='1')]
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                config.Config(**kwargs)
+
+    def test_long_fractional_micro_setting_rejected(self):
+        with self.assertRaises(ValueError):
+            config.load_config(environ={'EVALUATION_BUDGET_USD': '1.0000000000000000000000000001'})
+
+    def test_direct_constructor_enforces_invariants(self):
+        for kwargs in ({'paid_tests_enabled': 'false'}, {'paid_tests_enabled': 1},
+                       {'total_limit': '500'}, {'stop_line': '4.51'},
+                       {'total_limit': '1', 'stop_line': '2'}, {'api_key': True},
+                       {'total_limit': 'NaN'}, {'total_limit': '0'},
+                       {'total_limit': '1.0000001'}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                config.Config(**kwargs)
+
     def test_disabled_by_default(self):
         self.assertIs(config.load_config(environ={}).paid_tests_enabled, False)
 

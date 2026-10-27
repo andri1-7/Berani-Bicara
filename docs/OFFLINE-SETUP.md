@@ -13,7 +13,7 @@ python3 -m venv .venv
 .venv/bin/python -m benchmarks status
 ```
 
-No external Python packages are required. Tests use temporary databases and synthetic fixtures. Normal status does not implicitly load `.env`. The CLI creates/uses the private ledger at `private/ledger.sqlite3`; it is not a read-only database inspection command.
+No external Python packages are required. Tests use temporary databases and synthetic fixtures. Normal status does not implicitly load `.env`. `status` is read-only and never creates or chmods anything. A missing ledger reports uninitialized; empty/foreign SQLite databases and missing schema/policy are rejected. For a genuinely new approved envelope ONLY, explicitly run `.venv/bin/python -m benchmarks init-ledger` once. It creates `private/ledger.sqlite3` exclusively, refuses any existing path, rejects symlink ancestors and never chmods unrelated existing directories. An existing immediate parent must already be private (0700). Do not run initialization to recover or reset budget. The existing canonical zero-spend ledger remains valid without migration. The descriptor-anchored SQLite implementation currently requires Linux `/proc/self/fd`.
 
 To inspect whether private configuration is populated without exposing it:
 

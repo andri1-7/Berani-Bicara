@@ -7,6 +7,30 @@ import tempfile
 import unittest
 
 class TestCLI(unittest.TestCase):
+    def test_status_missing_is_read_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp)/'unrelated'
+            parent.mkdir(mode=0o755)
+            path = parent/'ledger.sqlite3'
+            result = subprocess.run([sys.executable, '-m', 'benchmarks', 'status', '--ledger', str(path)], capture_output=True, text=True)
+            self.assertFalse(path.exists(), result.stdout)
+            self.assertEqual(parent.stat().st_mode & 0o777, 0o755)
+            self.assertEqual(json.loads(result.stdout)['budget'], {'initialized': False})
+
+    def test_explicit_init_command_then_readonly_status(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'private'/'ledger.sqlite3'
+            command = [sys.executable, '-m', 'benchmarks', 'init-ledger', '--ledger', str(path)]
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            before = path.read_bytes()
+            result = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            result = subprocess.run([sys.executable, '-m', 'benchmarks', 'status', '--ledger', str(path)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(json.loads(result.stdout)['budget']['confirmed_micro'], 0)
+
     def test_status_is_offline_and_disabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = subprocess.run([sys.executable, '-m', 'benchmarks', 'status',
@@ -19,7 +43,7 @@ class TestCLI(unittest.TestCase):
         from benchmarks.budget import BudgetLedger, DEFAULT_STAGE_LIMITS
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)/'private'/'ledger.sqlite3'
-            ledger = BudgetLedger(path, DEFAULT_STAGE_LIMITS)
+            ledger = BudgetLedger.initialize(path, DEFAULT_STAGE_LIMITS)
             request = ledger.reserve('smoke', '0.10')
             ledger.settle(request, '0.02')
             ledger.mark_unknown(ledger.reserve('smoke', '0.10'))
