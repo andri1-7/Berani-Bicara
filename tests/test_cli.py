@@ -72,7 +72,8 @@ class TestCLI(unittest.TestCase):
             config = Path(tmp)/'fixture.env'
             secret = 'fixture-do-not-print'
             config.write_text('PAID_TESTS_ENABLED='+secret)
-            result = subprocess.run([sys.executable, '-m', 'benchmarks', 'status', '--config', str(config), '--ledger', tmp+'/private/ledger.sqlite3'], capture_output=True, text=True)
+            result = subprocess.run([sys.executable, '-m', 'benchmarks', 'status', '--config', str(config), '--ledger', tmp+'/private/ledger.sqlite3'], capture_output=True, text=True,
+                                    env={key: value for key, value in os.environ.items() if key not in ('OPENROUTER_API_KEY', 'PAID_TESTS_ENABLED', 'EVALUATION_BUDGET_USD', 'EVALUATION_STOP_LINE_USD')})
             self.assertEqual(result.returncode, 2)
             self.assertNotIn(secret, result.stdout+result.stderr)
 
