@@ -1,0 +1,44 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+
+# Swift / Xcode / macOS
+.DS_Store
+.build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcarchive
+*.dSYM/
+
+# Python / auxiliary tooling
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node tooling, if introduced
+node_modules/
+
+# Private input, recordings and generated outputs
+private/
+recordings/
+transcripts/
+benchmark-results/
+artifacts/
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.pcm
+*.ogg
+*.webm
+*.log
