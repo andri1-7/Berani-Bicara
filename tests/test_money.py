@@ -9,3 +9,11 @@ class TestMoney(unittest.TestCase):
         for value in ('-1', 'NaN', 'Infinity', 0.2):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 money.reserve_micro(value)
+
+    def test_actual_cost_not_rounded_down(self):
+        convert = getattr(money, 'actual_micro', lambda value: 0)
+        self.assertEqual(convert('0.00000100000000000000001'), 2)
+        self.assertEqual(convert('4.50'), 4500000)
+        for value in ('-0.01', 'NaN', '1e1000000', '1e-1000000', 0.1):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                convert(value)

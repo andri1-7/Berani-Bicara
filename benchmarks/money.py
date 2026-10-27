@@ -13,9 +13,15 @@ def reserve_micro(value):
         with localcontext() as ctx:
             ctx.prec = 250
             amount = Decimal(value)
+            if amount and abs(amount.adjusted()) > 200:
+                raise ValueError
             micro = (amount * 1000000).to_integral_value(rounding=ROUND_CEILING)
             if not amount.is_finite() or amount < 0 or micro > MAX_MICRO:
                 raise ValueError
             return int(micro)
     except (InvalidOperation, OverflowError, ValueError):
         raise ValueError('Invalid USD amount') from None
+
+
+def actual_micro(value):
+    return reserve_micro(value)
