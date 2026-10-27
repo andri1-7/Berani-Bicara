@@ -88,3 +88,10 @@ class BudgetLedger:
             reserved = sum(row['reserved_micro'] for row in rows if row['actual_micro'] is None)
             return {'confirmed_micro': confirmed, 'reserved_micro': reserved,
                     'unresolved': sum(row['status'] == 'unknown' for row in rows)}
+
+    def settle(self, request_id, actual_usd):
+        amount = actual_micro(actual_usd)
+        with self._transaction() as db:
+            changed = db.execute("UPDATE requests SET actual_micro=?, status='settled' WHERE id=? AND actual_micro IS NULL AND status IN ('reserved', 'unknown')", (amount, request_id)).rowcount
+            if changed != 1:
+                raise ValueError('Request is missing or already settled')

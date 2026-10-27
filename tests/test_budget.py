@@ -86,3 +86,14 @@ except BudgetExceeded:
         self.assertEqual(summary.get('unresolved'), 1)
         with self.assertRaises(BudgetExceeded):
             self.ledger.reserve('grammar', '0.01')
+
+    def test_duplicate_settlement_is_rejected(self):
+        request = self.ledger.reserve('smoke', '0.20')
+        getattr(self.ledger, 'settle', lambda *args: None)(request, '0.05')
+        self.assertEqual(self.ledger.summary()['confirmed_micro'], 50000)
+        self.assertEqual(self.ledger.summary()['reserved_micro'], 0)
+        with self.assertRaises(ValueError):
+            self.ledger.settle(request, '0.01')
+        with self.assertRaises(ValueError):
+            self.ledger.settle('nonexistent', '0')
+        self.ledger.reserve('smoke', '0.20')
