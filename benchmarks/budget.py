@@ -26,9 +26,11 @@ class BudgetLedger:
             raise ValueError('Invalid stage limits')
         if not 0 < self.stop_line <= min(self.total_limit, 4500000) or self.total_limit > 5000000:
             raise ValueError('Invalid total limits')
+        if self.path.is_symlink() or self.path.parent.is_symlink():
+            raise ValueError('Symlink ledger paths are not supported')
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(self.path.parent, 0o700)
-        fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
+        fd = os.open(self.path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         os.close(fd)
         os.chmod(self.path, 0o600)
         with self._transaction() as db:

@@ -112,3 +112,13 @@ except BudgetExceeded:
         self.ledger.settle(request, '0.100001')
         with self.assertRaises(BudgetExceeded):
             BudgetLedger(self.path, LIMITS).reserve('grammar', '0.01')
+
+    def test_symlink_ledger_is_rejected_without_touching_target(self):
+        target = Path(self.tmp.name)/'untouched'
+        target.write_text('fixture')
+        target.chmod(0o644)
+        link = self.path.parent/'link.sqlite3'
+        link.symlink_to(target)
+        with self.assertRaises(ValueError):
+            BudgetLedger(link, LIMITS)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o644)
