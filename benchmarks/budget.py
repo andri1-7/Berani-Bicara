@@ -88,7 +88,14 @@ class BudgetLedger:
             rows = db.execute('SELECT stage, reserved_micro, actual_micro, status FROM requests').fetchall()
             confirmed = sum(row['actual_micro'] for row in rows if row['actual_micro'] is not None)
             reserved = sum(row['reserved_micro'] for row in rows if row['actual_micro'] is None)
-            return {'confirmed_micro': confirmed, 'reserved_micro': reserved,
+            remaining = max(0, min(self.total_limit, self.stop_line) - confirmed - reserved)
+            halted = db.execute("SELECT 1 FROM metadata WHERE key='halted'").fetchone() is not None
+            available = {stage: max(0, min(remaining, cap - sum(row['actual_micro'] if row['actual_micro'] is not None else row['reserved_micro'] for row in rows if row['stage'] == stage))) for stage, cap in self.limits.items()}
+            return {'remaining_micro': remaining, 'available_by_stage_micro': available,
+                    'total_limit_micro': self.total_limit, 'stop_line_micro': self.stop_line,
+                    'outstanding': sum(row['actual_micro'] is None for row in rows),
+                    'dispatch_allowed': not halted and not any(row['actual_micro'] is None for row in rows) and any(available.values()),
+                    'confirmed_micro': confirmed, 'reserved_micro': reserved,
                     'unresolved': sum(row['status'] == 'unknown' for row in rows),
                     'halted': db.execute("SELECT 1 FROM metadata WHERE key='halted'").fetchone() is not None}
 
