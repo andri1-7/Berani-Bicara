@@ -32,6 +32,13 @@ class BudgetLedger:
         os.close(fd)
         os.chmod(self.path, 0o600)
         with self._transaction() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+            policy = json.dumps({'version': 1, 'stage_limits': self.limits, 'total_limit': self.total_limit, 'stop_line': self.stop_line}, sort_keys=True)
+            existing = db.execute("SELECT value FROM metadata WHERE key='policy'").fetchone()
+            if existing is None:
+                db.execute("INSERT INTO metadata VALUES ('policy', ?)", (policy,))
+            elif existing[0] != policy:
+                raise ValueError('Ledger policy is immutable')
             db.execute('CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, stage TEXT NOT NULL, reserved_micro INTEGER NOT NULL, actual_micro INTEGER, status TEXT NOT NULL, generation_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
 
     @contextmanager

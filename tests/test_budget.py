@@ -33,3 +33,13 @@ class TestBudget(unittest.TestCase):
             self.ledger.reserve('contingency', '0.01')
         with self.assertRaises(ValueError):
             self.ledger.reserve('smoke', '0')
+
+    def test_reopen_preserves_outstanding_reservation(self):
+        self.ledger.reserve('smoke', '0.20')
+        reopened = BudgetLedger(self.path, LIMITS)
+        with self.assertRaises(BudgetExceeded):
+            reopened.reserve('smoke', '0.06')
+        for limits, total, stop in [({**LIMITS, 'smoke': '0.30'}, '5', '4.50'),
+                                    (LIMITS, '4.90', '4.50'), (LIMITS, '5', '4.40')]:
+            with self.subTest(limits=limits), self.assertRaises(ValueError):
+                BudgetLedger(self.path, limits, total, stop)
