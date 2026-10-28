@@ -71,11 +71,22 @@ jobs:
           test -d "$APP"
           file "$APP/Contents/MacOS/beranibicara"
           plutil -lint "$APP/Contents/Info.plist"
+          # Developer preview: replace the incomplete linker/bundle signature.
+          # Ad-hoc signing provides integrity, NOT Developer ID or notarization.
+          codesign --force --sign - --timestamp=none "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
           mkdir -p artifacts
           ditto -c -k --sequesterRsrc --keepParent "$APP" artifacts/BeraniBicara-macos-arm64-unsigned.zip
+          VERIFY_DIR="$(mktemp -d)"
+          ditto -x -k artifacts/BeraniBicara-macos-arm64-unsigned.zip "$VERIFY_DIR"
+          codesign --verify --deep --strict --verbose=2 "$VERIFY_DIR/BeraniBicara.app"
+          shasum -a 256 artifacts/BeraniBicara-macos-arm64-unsigned.zip > artifacts/SHA256SUMS.txt
+          echo 'Ad-hoc signature and ZIP round-trip integrity verified. NOT notarized.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: BeraniBicara-macos-arm64-unsigned-${{ github.sha }}
-          path: artifacts/BeraniBicara-macos-arm64-unsigned.zip
+          path: |
+            artifacts/BeraniBicara-macos-arm64-unsigned.zip
+            artifacts/SHA256SUMS.txt
           retention-days: 3
           if-no-files-found: error
